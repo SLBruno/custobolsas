@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Calculadora de preço para bolsas costuradas à mão: materiais, hora de trabalho, custos fixos, lucro e taxas, com histórico.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Preço das Bolsas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
+<style>
+/* Layout: ateliê de costura — uma coluna calma; na tela larga, formulário à esquerda e etiqueta de preço "costurada" à direita */
+:root {
+  --bg: #F4F5F7;
+  --surface: #FFFFFF;
+  --surface-2: #ECEEF3;
+  --ink: #1E2433;
+  --muted: #5C6375;
+  --line: #D5D9E2;
+  --accent: #7A2E5C;        /* linha ameixa */
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F3E6EE;
+  --thread: #C98A1B;        /* linha mostarda do pesponto */
+  --good: #1F7A4D;
+  --bad: #B3261E;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Nunito Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171F; --surface: #1C2029; --surface-2: #252A35; --ink: #ECEEF3; --muted: #A3AABA;
+    --line: #343A48; --accent: #E59BC6; --accent-ink: #2A0E1F; --accent-soft: #3A2231;
+    --thread: #E2B04F; --good: #6FD39E; --bad: #FF8A80; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14171F; --surface: #1C2029; --surface-2: #252A35; --ink: #ECEEF3; --muted: #A3AABA;
+  --line: #343A48; --accent: #E59BC6; --accent-ink: #2A0E1F; --accent-soft: #3A2231;
+  --thread: #E2B04F; --good: #6FD39E; --bad: #FF8A80; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.5;
+}
+.wrap {
+  max-width: 1080px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: 1.9rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 0.9rem; }
+.num { font-variant-numeric: tabular-nums; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+header.top .sub { color: var(--muted); }
+.storage-note { font-size: 0.85rem; color: var(--muted); }
+
+/* abas */
+nav.tabs { display: flex; gap: 6px; background: var(--surface-2); padding: 5px; border-radius: 12px; margin-bottom: 20px; overflow-x: auto; }
+nav.tabs button {
+  flex: 1 1 0; min-width: max-content; border: 0; background: transparent; color: var(--ink);
+  font: 700 1rem var(--font-body); padding: 12px 14px; border-radius: 9px; cursor: pointer;
+}
+nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+nav.tabs button:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--thread); outline-offset: 2px;
+}
+
+.panel { display: grid; gap: 18px; }
+.cols { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) {
+  .cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+  .cols .side { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+}
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.box-head { display: grid; gap: 4px; }
+
+label.field { display: grid; gap: 6px; font-weight: 600; }
+label.field .hint { font-weight: 400; font-size: 0.88rem; color: var(--muted); }
+input[type="text"], textarea {
+  width: 100%; font: 400 1.05rem var(--font-body); color: var(--ink); background: var(--bg);
+  border: 1.5px solid var(--line); border-radius: 8px; padding: 11px 12px; min-width: 0;
+}
+textarea { resize: vertical; min-height: 64px; }
+input.money { font-variant-numeric: tabular-nums; }
+.row2 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+.prefix { position: relative; }
+.prefix > span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; pointer-events: none; }
+.prefix > input { padding-left: 40px; }
+.suffix { position: relative; }
+.suffix > span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; pointer-events: none; }
+.suffix > input { padding-right: 52px; }
+
+/* lista de materiais / custos fixos */
+.items { display: grid; gap: 10px; }
+.item {
+  display: grid; gap: 8px; align-items: end;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1.1fr) auto;
+}
+.item.fixo { grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) auto; }
+.item label { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.item .sub { font-size: 0.85rem; color: var(--muted); grid-column: 1 / -1; margin-top: -4px; }
+@media (max-width: 560px) {
+  .item { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .item > label:first-child { grid-column: 1 / -1; }
+  .item.fixo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .item.fixo > label:first-child { grid-column: 1 / -1; }
+}
+.item + .item { border-top: 1px dashed var(--line); padding-top: 10px; }
+
+button { font-family: var(--font-body); }
+.btn {
+  border: 1.5px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+  font-weight: 700; font-size: 1.02rem; padding: 12px 18px; border-radius: 9px; cursor: pointer;
+}
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.quiet { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn.sm { padding: 8px 12px; font-size: 0.92rem; }
+.btn:disabled { opacity: .55; cursor: default; }
+.icon-btn {
+  border: 1.5px solid var(--line); background: transparent; color: var(--muted); border-radius: 8px;
+  width: 44px; height: 46px; cursor: pointer; font-size: 1.2rem; line-height: 1;
+}
+.icon-btn:hover { color: var(--bad); border-color: var(--bad); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.example-flag {
+  display: flex; gap: 10px; align-items: start; background: var(--accent-soft); color: var(--ink);
+  border-radius: 8px; padding: 10px 12px; font-size: 0.93rem;
+}
+.example-flag b { color: var(--accent); }
+
+/* etiqueta de preço com pesponto */
+.tag {
+  background: var(--surface); border-radius: 14px; padding: 8px; border: 1px solid var(--line);
+}
+.tag-inner {
+  border: 2px dashed var(--thread); border-radius: 10px; padding: 18px; display: grid; gap: 14px;
+}
+.tag .eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+.price-big { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; }
+.price-exact { color: var(--muted); font-size: 0.92rem; }
+dl.break { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; margin: 0; }
+dl.break dt { color: var(--muted); min-width: 0; }
+dl.break dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+dl.break .total { border-top: 1.5px solid var(--line); padding-top: 7px; color: var(--ink); font-weight: 700; }
+dl.break .total + dd { border-top: 1.5px solid var(--line); padding-top: 7px; font-weight: 700; }
+
+.bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.bar span { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.82rem; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.c-mat { background: #5B7DB1; } .c-mao { background: var(--accent); } .c-fixo { background: #8A93A6; } .c-lucro { background: var(--good); } .c-taxa { background: var(--thread); }
+
+.profit-line { font-weight: 700; }
+.profit-line.good { color: var(--good); }
+.profit-line.bad { color: var(--bad); }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 10px; font-weight: 700;
+  box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: calc(100% - 32px); z-index: 10;
+}
+
+/* histórico */
+.hist-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.hist-tools input { max-width: 340px; }
+.hist-list { display: grid; gap: 10px; }
+.hist-item { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.hist-item > button.summary {
+  width: 100%; background: transparent; border: 0; text-align: left; cursor: pointer; color: var(--ink);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; padding: 14px 16px; font: inherit;
+}
+.hist-item .name { font-weight: 700; font-size: 1.08rem; overflow-wrap: anywhere; }
+.hist-item .when { color: var(--muted); font-size: 0.88rem; }
+.hist-item .price { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; color: var(--accent); text-align: right; grid-row: span 2; align-self: center; font-variant-numeric: tabular-nums; }
+.hist-detail { border-top: 1px dashed var(--line); padding: 14px 16px; display: grid; gap: 12px; }
+.mat-table { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
+.mat-table th, .mat-table td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.mat-table td.r, .mat-table th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; }
+.empty { background: var(--surface); border: 2px dashed var(--line); border-radius: var(--radius); padding: 28px 18px; text-align: center; display: grid; gap: 10px; justify-items: center; }
+.confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+
+.summary-tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.tile { background: var(--surface-2); border-radius: 8px; padding: 12px; display: grid; gap: 2px; }
+.tile b { font-family: var(--font-display); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 0.88rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tag-inner { transition: border-color .3s; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Preço das Bolsas</h1>
+      <p class="sub">Some o tecido, a linha e o seu tempo. O preço justo aparece na hora.</p>
+    </div>
+    <p class="storage-note" id="storageNote">Conectando…</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Seções">
+    <button role="tab" id="tab-nova" aria-controls="p-nova" aria-selected="true">Nova bolsa</button>
+    <button role="tab" id="tab-hist" aria-controls="p-hist" aria-selected="false">Histórico <span id="histCount"></span></button>
+    <button role="tab" id="tab-custos" aria-controls="p-custos" aria-selected="false">Meus custos</button>
+  </nav>
+
+  <!-- NOVA BOLSA -->
+  <section id="p-nova" role="tabpanel" aria-labelledby="tab-nova" class="panel">
+    <div class="example-flag" id="cfgExampleFlag" hidden>
+      <span>✎</span>
+      <p><b>Os custos do mês ainda são de exemplo.</b> Abra <a href="#custos" id="goCustos">Meus custos</a> e coloque os seus valores de verdade para o preço sair certo.</p>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <div class="box">
+          <div class="box-head">
+            <h2 id="formTitle">Qual é a bolsa?</h2>
+            <p class="muted small" id="editingNote" hidden></p>
+          </div>
+          <label class="field">Nome da bolsa
+            <input type="text" id="bNome" placeholder="Ex.: Bolsa tiracolo de lona azul" autocomplete="off">
+          </label>
+          <label class="field">Anotações <span class="hint">Opcional: cor, tamanho, cliente, encomenda…</span>
+            <textarea id="bNotas" rows="2"></textarea>
+          </label>
+        </div>
+
+        <div class="box">
+          <div class="box-head">
+            <h2>Materiais usados</h2>
+            <p class="muted small">Tudo que vai na bolsa: tecido, forro, zíper, alça, botão, linha, etiqueta, embalagem. Coloque quanto usou e o preço de cada unidade (metro, peça, rolo).</p>
+          </div>
+          <div class="items" id="matList"></div>
+          <div class="actions">
+            <button class="btn ghost sm" id="addMat" type="button">+ Adicionar material</button>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">
+            <h2>Tempo de trabalho</h2>
+            <p class="muted small">Conte tudo: cortar, costurar, acabamento e passar.</p>
+          </div>
+          <div class="row2">
+            <label class="field">Horas
+              <div class="suffix"><input type="text" inputmode="numeric" id="bHoras" class="money"><span>h</span></div>
+            </label>
+            <label class="field">Minutos
+              <div class="suffix"><input type="text" inputmode="numeric" id="bMin" class="money"><span>min</span></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">
+            <h2>Lucro e taxas desta bolsa</h2>
+            <p class="muted small">Já vem com o padrão de Meus custos. Mude só se esta venda for diferente.</p>
+          </div>
+          <div class="row2">
+            <label class="field">Lucro <span class="hint">Quanto a mais sobre o custo</span>
+              <div class="suffix"><input type="text" inputmode="decimal" id="bLucro" class="money"><span>%</span></div>
+            </label>
+            <label class="field">Taxas da venda <span class="hint">Maquininha, Shopee, Elo7…</span>
+              <div class="suffix"><input type="text" inputmode="decimal" id="bTaxa" class="money"><span>%</span></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <aside class="side panel">
+        <div class="tag" aria-live="polite">
+          <div class="tag-inner">
+            <div>
+              <p class="eyebrow">Preço sugerido</p>
+              <p class="price-big" id="rPreco">R$ 0</p>
+              <p class="price-exact" id="rExato"></p>
+            </div>
+            <div class="bar" id="rBar" aria-hidden="true"></div>
+            <div class="legend">
+              <span><i class="c-mat"></i>Materiais</span>
+              <span><i class="c-mao"></i>Seu trabalho</span>
+              <span><i class="c-fixo"></i>Custos fixos</span>
+              <span><i class="c-lucro"></i>Lucro</span>
+              <span><i class="c-taxa"></i>Taxas</span>
+            </div>
+            <dl class="break">
+              <dt>Materiais</dt><dd id="rMat"></dd>
+              <dt id="rMaoLbl">Seu trabalho</dt><dd id="rMao"></dd>
+              <dt id="rFixoLbl">Parte dos custos fixos</dt><dd id="rFixo"></dd>
+              <dt class="total">Custo da bolsa</dt><dd id="rCusto"></dd>
+              <dt id="rLucroLbl">Lucro</dt><dd id="rLucro"></dd>
+              <dt id="rTaxaLbl">Taxas da venda</dt><dd id="rTaxa"></dd>
+            </dl>
+            <label class="field">Vou vender por
+              <div class="prefix"><span>R$</span><input type="text" inputmode="decimal" id="bVenda" class="money"></div>
+            </label>
+            <p class="profit-line" id="rReal"></p>
+            <div class="actions">
+              <button class="btn" id="saveBag" type="button">Salvar no histórico</button>
+              <button class="btn quiet" id="newBag" type="button">Começar outra</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- HISTÓRICO -->
+  <section id="p-hist" role="tabpanel" aria-labelledby="tab-hist" class="panel" hidden>
+    <div class="summary-tiles" id="histTiles"></div>
+    <div class="hist-tools">
+      <input type="text" id="histBusca" placeholder="Procurar bolsa pelo nome…" aria-label="Procurar bolsa">
+      <p class="muted small" id="histInfo"></p>
+    </div>
+    <div class="hist-list" id="histList"></div>
+  </section>
+
+  <!-- MEUS CUSTOS -->
+  <section id="p-custos" role="tabpanel" aria-labelledby="tab-custos" class="panel" hidden>
+    <div class="example-flag" id="cfgExampleFlag2" hidden>
+      <span>✎</span>
+      <p><b>Estes números são só um exemplo.</b> Troque pelos seus e toque em Salvar meus custos.</p>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <div class="box">
+          <div class="box-head">
+            <h2>Valor da sua hora</h2>
+            <p class="muted small">Quanto você quer ganhar por mês pelo seu trabalho, e quantas horas costura no mês.</p>
+          </div>
+          <div class="row2">
+            <label class="field">Quero ganhar por mês
+              <div class="prefix"><span>R$</span><input type="text" inputmode="decimal" id="cSalario" class="money"></div>
+            </label>
+            <label class="field">Horas de costura no mês
+              <div class="suffix"><input type="text" inputmode="numeric" id="cHoras" class="money"><span>h</span></div>
+              <span class="hint">Ex.: 6 h por dia × 22 dias = 132 h</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">
+            <h2>Custos fixos do mês</h2>
+            <p class="muted small">Contas que você paga todo mês, vendendo ou não. Se a conta é da casa toda, coloque só a parte do ateliê.</p>
+          </div>
+          <div class="items" id="fixoList"></div>
+          <div class="actions">
+            <button class="btn ghost sm" id="addFixo" type="button">+ Adicionar conta</button>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="box-head">
+            <h2>Padrão para novas bolsas</h2>
+          </div>
+          <div class="row2">
+            <label class="field">Lucro
+              <div class="suffix"><input type="text" inputmode="decimal" id="cLucro" class="money"><span>%</span></div>
+            </label>
+            <label class="field">Taxas da venda
+              <div class="suffix"><input type="text" inputmode="decimal" id="cTaxa" class="money"><span>%</span></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <aside class="side panel">
+        <div class="tag">
+          <div class="tag-inner">
+            <div>
+              <p class="eyebrow">Cada hora sua custa</p>
+              <p class="price-big" id="cHoraTotal">R$ 0</p>
+            </div>
+            <dl class="break">
+              <dt>Seu trabalho por hora</dt><dd id="cHoraMao"></dd>
+              <dt>Custos fixos por hora</dt><dd id="cHoraFixo"></dd>
+              <dt class="total">Total de custos fixos no mês</dt><dd id="cTotalFixo"></dd>
+            </dl>
+            <p class="muted small">Cada bolsa leva a parte dos custos fixos que corresponde ao tempo gasto nela.</p>
+            <div class="actions">
+              <button class="btn" id="saveCfg" type="button">Salvar meus custos</button>
+            </div>
+            <p class="muted small" id="cfgSavedAt"></p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  /* ---------- utilidades ---------- */
+  const $ = (id) => document.getElementById(id);
+  const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const fmt = (n) => brl.format(isFinite(n) ? n : 0);
+  const fmtNum = (n, d = 2) => (isFinite(n) ? n : 0).toLocaleString("pt-BR", { maximumFractionDigits: d });
+  function parseNum(v) {
+    if (typeof v === "number") return v;
+    let s = String(v || "").trim().replace(/\s|R\$|%/g, "");
+    if (!s) return 0;
+    if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+    const n = parseFloat(s);
+    return isFinite(n) ? n : 0;
+  }
+  const show = (n) => (n ? String(n).replace(".", ",") : "");
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 2600);
+  }
+
+  /* ---------- valores de exemplo (só até ela salvar os dela) ---------- */
+  const EXEMPLO_CFG = {
+    exemplo: true,
+    salario: 2000, horasMes: 132, lucro: 30, taxa: 5,
+    fixos: [
+      { nome: "Luz (parte do ateliê)", valor: 60 },
+      { nome: "Internet e celular", valor: 50 },
+      { nome: "MEI (DAS)", valor: 76 },
+      { nome: "Manutenção da máquina", valor: 30 },
+      { nome: "Agulhas, tesoura, giz", valor: 20 },
+    ],
+  };
+  const EXEMPLO_BOLSA = () => ({
+    exemplo: true,
+    nome: "Exemplo: bolsa tiracolo de lona", notas: "",
+    materiais: [
+      { nome: "Lona (metro)", qtd: 0.5, preco: 38 },
+      { nome: "Forro de tricoline (metro)", qtd: 0.5, preco: 22 },
+      { nome: "Zíper 30 cm", qtd: 1, preco: 4.5 },
+      { nome: "Alça regulável", qtd: 1, preco: 12 },
+      { nome: "Linha, etiqueta e embalagem", qtd: 1, preco: 5 },
+    ],
+    horas: 3, min: 30, lucro: null, taxa: null, venda: "",
+  });
+
+  /* ---------- estado ---------- */
+  let cfg = structuredClone(EXEMPLO_CFG);
+  let bag = lsGet("rascunhoBolsa") || EXEMPLO_BOLSA();
+  let editingId = lsGet("rascunhoEditId") || null;
+  let historico = [];
+  let store = null; // adaptador de armazenamento
+
+  /* ---------- cálculo ---------- */
+  function calcular(b, c) {
+    const horasMes = c.horasMes > 0 ? c.horasMes : 1;
+    const totalFixos = (c.fixos || []).reduce((s, f) => s + parseNum(f.valor), 0);
+    const valorHora = parseNum(c.salario) / horasMes;
+    const fixoHora = totalFixos / horasMes;
+    const tempo = parseNum(b.horas) + parseNum(b.min) / 60;
+    const materiais = (b.materiais || []).reduce((s, m) => s + parseNum(m.qtd) * parseNum(m.preco), 0);
+    const maoObra = tempo * valorHora;
+    const fixo = tempo * fixoHora;
+    const custo = materiais + maoObra + fixo;
+    const lucroPct = b.lucro == null ? parseNum(c.lucro) : parseNum(b.lucro);
+    const taxaPct = Math.min(b.taxa == null ? parseNum(c.taxa) : parseNum(b.taxa), 90);
+    const lucro = custo * lucroPct / 100;
+    const preco = (custo + lucro) / (1 - taxaPct / 100);
+    const taxa = preco - custo - lucro;
+    const passo = preco >= 50 ? 5 : 1;
+    const arredondado = preco > 0 ? Math.ceil(preco / passo) * passo : 0;
+    return { totalFixos, valorHora, fixoHora, tempo, materiais, maoObra, fixo, custo, lucroPct, taxaPct, lucro, taxa, preco, arredondado };
+  }
+  function lucroReal(venda, r) {
+    const recebe = venda * (1 - r.taxaPct / 100);
+    return recebe - r.custo;
+  }
+
+  /* ---------- abas ---------- */
+  const tabs = [["tab-nova", "p-nova"], ["tab-hist", "p-hist"], ["tab-custos", "p-custos"]];
+  function abrirAba(tabId) {
+    tabs.forEach(([t, p]) => { $(t).setAttribute("aria-selected", t === tabId); $(p).hidden = t !== tabId; });
+    lsSet("aba", tabId);
+  }
+  tabs.forEach(([t]) => $(t).addEventListener("click", () => abrirAba(t)));
+  $("goCustos").addEventListener("click", (e) => { e.preventDefault(); abrirAba("tab-custos"); window.scrollTo(0, 0); });
+
+  /* ---------- formulário da bolsa ---------- */
+  function linhaMaterial(m, i) {
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `
+      <label>Material<input type="text" data-k="nome" id="mat-n-${i}" placeholder="Ex.: Tecido (metro)"></label>
+      <label>Quantidade<input type="text" data-k="qtd" id="mat-q-${i}" inputmode="decimal" class="money" placeholder="1"></label>
+      <label>Preço da unidade<div class="prefix"><span>R$</span><input type="text" data-k="preco" id="mat-p-${i}" inputmode="decimal" class="money" placeholder="0,00"></div></label>
+      <button class="icon-btn" type="button" aria-label="Tirar este material" title="Tirar">×</button>
+      <p class="sub num"></p>`;
+    const [n, q, p] = row.querySelectorAll("input");
+    n.value = m.nome || ""; q.value = show(m.qtd); p.value = show(m.preco);
+    const sub = row.querySelector(".sub");
+    const upd = () => {
+      m.nome = n.value; m.qtd = q.value; m.preco = p.value;
+      const qtd = parseNum(q.value), pr = parseNum(p.value);
+      sub.textContent = pr ? `${fmtNum(qtd, 3)} × ${fmt(pr)} = ${fmt(qtd * pr)}` : "";
+    };
+    [n, q, p].forEach((el) => el.addEventListener("input", () => { upd(); mudouBolsa(); }));
+    row.querySelector("button").addEventListener("click", () => {
+      bag.materiais.splice(bag.materiais.indexOf(m), 1);
+      renderMateriais(); mudouBolsa();
+    });
+    upd();
+    return row;
+  }
+  function renderMateriais() {
+    const list = $("matList"); list.innerHTML = "";
+    bag.materiais.forEach((m, i) => list.appendChild(linhaMaterial(m, i)));
+  }
+  $("addMat").addEventListener("click", () => {
+    bag.materiais.push({ nome: "", qtd: 1, preco: "" });
+    renderMateriais();
+    $("matList").lastElementChild.querySelector("input").focus();
+  });
+
+  function preencherBolsa() {
+    $("bNome").value = bag.nome || "";
+    $("bNotas").value = bag.notas || "";
+    $("bHoras").value = show(bag.horas);
+    $("bMin").value = show(bag.min);
+    $("bLucro").value = show(bag.lucro == null ? cfg.lucro : bag.lucro);
+    $("bTaxa").value = show(bag.taxa == null ? cfg.taxa : bag.taxa);
+    $("bVenda").value = bag.venda ? show(bag.venda) : "";
+    renderMateriais();
+    const ed = $("editingNote");
+    if (editingId) { ed.hidden = false; ed.textContent = "Você está alterando uma bolsa do histórico. Salvar vai atualizar a mesma bolsa."; $("formTitle").textContent = "Alterando bolsa"; }
+    else { ed.hidden = true; $("formTitle").textContent = "Qual é a bolsa?"; }
+    recalcular();
+  }
+  const bindBag = (id, key) => $(id).addEventListener("input", (e) => { bag[key] = e.target.value; mudouBolsa(); });
+  bindBag("bNome", "nome"); bindBag("bNotas", "notas"); bindBag("bHoras", "horas"); bindBag("bMin", "min");
+  bindBag("bLucro", "lucro"); bindBag("bTaxa", "taxa"); bindBag("bVenda", "venda");
+
+  function mudouBolsa() {
+    if (bag.exemplo) bag.exemplo = false;
+    lsSet("rascunhoBolsa", bag); lsSet("rascunhoEditId", editingId);
+    recalcular();
+  }
+
+  function recalcular() {
+    const r = calcular(bag, cfg);
+    $("rPreco").textContent = fmt(r.arredondado).replace(",00", "");
+    $("rExato").textContent = r.preco > 0 ? `Valor exato: ${fmt(r.preco)} (arredondado para cima)` : "Preencha os materiais e o tempo.";
+    $("rMat").textContent = fmt(r.materiais);
+    $("rMaoLbl").textContent = `Seu trabalho (${fmtNum(r.tempo)} h × ${fmt(r.valorHora)})`;
+    $("rMao").textContent = fmt(r.maoObra);
+    $("rFixoLbl").textContent = `Parte dos custos fixos (${fmtNum(r.tempo)} h × ${fmt(r.fixoHora)})`;
+    $("rFixo").textContent = fmt(r.fixo);
+    $("rCusto").textContent = fmt(r.custo);
+    $("rLucroLbl").textContent = `Lucro (${fmtNum(r.lucroPct)}%)`;
+    $("rLucro").textContent = fmt(r.lucro);
+    $("rTaxaLbl").textContent = `Taxas da venda (${fmtNum(r.taxaPct)}%)`;
+    $("rTaxa").textContent = fmt(r.taxa);
+    const partes = [["c-mat", r.materiais], ["c-mao", r.maoObra], ["c-fixo", r.fixo], ["c-lucro", r.lucro], ["c-taxa", r.taxa]];
+    const tot = r.preco || 1;
+    $("rBar").innerHTML = partes.map(([c, v]) => `<span class="${c}" style="width:${Math.max(0, v / tot * 100)}%"></span>`).join("");
+    $("bVenda").placeholder = r.arredondado ? show(r.arredondado) : "0,00";
+    const venda = bag.venda ? parseNum(bag.venda) : r.arredondado;
+    const real = lucroReal(venda, r);
+    const el = $("rReal");
+    if (!r.custo) { el.textContent = ""; el.className = "profit-line"; }
+    else if (real >= 0) { el.textContent = `Vendendo por ${fmt(venda)}, sobra ${fmt(real)} de lucro, além do seu salário.`; el.className = "profit-line good"; }
+    else { el.textContent = `Vendendo por ${fmt(venda)}, falta ${fmt(-real)} para cobrir os custos.`; el.className = "profit-line bad"; }
+    return r;
+  }
+
+  $("newBag").addEventListener("click", () => {
+    bag = { nome: "", notas: "", materiais: [{ nome: "", qtd: 1, preco: "" }], horas: "", min: "", lucro: null, taxa: null, venda: "" };
+    editingId = null; lsSet("rascunhoBolsa", bag); lsSet("rascunhoEditId", null);
+    preencherBolsa(); $("bNome").focus();
+  });
+
+  $("saveBag").addEventListener("click", async () => {
+    const r = recalcular();
+    if (!String(bag.nome || "").trim()) { toast("Dê um nome para a bolsa antes de salvar."); $("bNome").focus(); return; }
+    if (!r.custo) { toast("Coloque pelo menos um material ou o tempo de trabalho."); return; }
+    const venda = bag.venda ? parseNum(bag.venda) : r.arredondado;
+    const registro = {
+      nome: String(bag.nome).trim(),
+      notas: bag.notas || "",
+      materiais: bag.materiais.filter((m) => m.nome || parseNum(m.preco)).map((m) => ({ nome: m.nome || "Material", qtd: parseNum(m.qtd), preco: parseNum(m.preco) })),
+      horas: parseNum(bag.horas), min: parseNum(bag.min),
+      lucroPct: r.lucroPct, taxaPct: r.taxaPct,
+      custos: { salario: parseNum(cfg.salario), horasMes: parseNum(cfg.horasMes), totalFixos: r.totalFixos, valorHora: r.valorHora, fixoHora: r.fixoHora, eraExemplo: !!cfg.exemplo },
+      resultado: { materiais: r.materiais, maoObra: r.maoObra, fixo: r.fixo, custo: r.custo, lucro: r.lucro, taxa: r.taxa, precoSugerido: r.preco, precoArredondado: r.arredondado },
+      venda,
+      lucroReal: lucroReal(venda, r),
+      atualizadoEm: new Date().toISOString(),
+    };
+    const btn = $("saveBag"); btn.disabled = true;
+    try {
+      if (editingId) {
+        const antigo = historico.find((h) => h.id === editingId);
+        registro.criadoEm = antigo?.criadoEm || registro.atualizadoEm;
+        await store.salvarBolsa(editingId, registro);
+        toast("Bolsa atualizada no histórico");
+      } else {
+        registro.criadoEm = registro.atualizadoEm;
+        editingId = uid();
+        await store.salvarBolsa(editingId, registro);
+        toast("Bolsa salva no histórico");
+      }
+      lsSet("rascunhoEditId", editingId);
+      preencherBolsa();
+    } catch (e) {
+      toast(e?.code === "quota_exceeded" ? "O histórico está cheio. Apague bolsas antigas para salvar." : "Não deu para salvar agora. Tente de novo em instantes.");
+      if (!historico.some((h) => h.id === editingId)) editingId = null;
+    } finally { btn.disabled = false; }
+  });
+
+  /* ---------- meus custos ---------- */
+  function linhaFixo(f, i) {
+    const row = document.createElement("div");
+    row.className = "item fixo";
+    row.innerHTML = `
+      <label>Conta<input type="text" data-k="nome" id="fx-n-${i}" placeholder="Ex.: Aluguel do ateliê"></label>
+      <label>Valor por mês<div class="prefix"><span>R$</span><input type="text" id="fx-v-${i}" inputmode="decimal" class="money" placeholder="0,00"></div></label>
+      <button class="icon-btn" type="button" aria-label="Tirar esta conta" title="Tirar">×</button>`;
+    const [n, v] = row.querySelectorAll("input");
+    n.value = f.nome || ""; v.value = show(f.valor);
+    n.addEventListener("input", () => { f.nome = n.value; mudouCfg(); });
+    v.addEventListener("input", () => { f.valor = v.value; mudouCfg(); });
+    row.querySelector("button").addEventListener("click", () => { cfg.fixos.splice(cfg.fixos.indexOf(f), 1); renderFixos(); mudouCfg(); });
+    return row;
+  }
+  function renderFixos() {
+    const list = $("fixoList"); list.innerHTML = "";
+    cfg.fixos.forEach((f, i) => list.appendChild(linhaFixo(f, i)));
+  }
+  $("addFixo").addEventListener("click", () => {
+    cfg.fixos.push({ nome: "", valor: "" }); renderFixos();
+    $("fixoList").lastElementChild.querySelector("input").focus();
+  });
+  function preencherCfg() {
+    $("cSalario").value = show(cfg.salario);
+    $("cHoras").value = show(cfg.horasMes);
+    $("cLucro").value = show(cfg.lucro);
+    $("cTaxa").value = show(cfg.taxa);
+    renderFixos(); resumoCfg();
+  }
+  const bindCfg = (id, key) => $(id).addEventListener("input", (e) => { cfg[key] = parseNum(e.target.value); mudouCfg(); });
+  bindCfg("cSalario", "salario"); bindCfg("cHoras", "horasMes"); bindCfg("cLucro", "lucro"); bindCfg("cTaxa", "taxa");
+  let cfgSujo = false;
+  function mudouCfg() { cfgSujo = true; resumoCfg(); }
+  function resumoCfg() {
+    const r = calcular({ materiais: [], horas: 1, min: 0 }, cfg);
+    $("cHoraTotal").textContent = fmt(r.valorHora + r.fixoHora);
+    $("cHoraMao").textContent = fmt(r.valorHora);
+    $("cHoraFixo").textContent = fmt(r.fixoHora);
+    $("cTotalFixo").textContent = fmt(r.totalFixos);
+    $("cfgExampleFlag").hidden = !cfg.exemplo;
+    $("cfgExampleFlag2").hidden = !cfg.exemplo;
+    $("cfgSavedAt").textContent = cfgSujo ? "Você tem mudanças ainda não salvas." :
+      cfg.atualizadoEm ? `Salvo em ${new Date(cfg.atualizadoEm).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : "";
+    // a bolsa em edição acompanha os custos padrão
+    $("bLucro").value = show(bag.lucro == null ? cfg.lucro : bag.lucro);
+    $("bTaxa").value = show(bag.taxa == null ? cfg.taxa : bag.taxa);
+    recalcular();
+  }
+  $("saveCfg").addEventListener("click", async () => {
+    const dados = {
+      salario: parseNum(cfg.salario), horasMes: parseNum(cfg.horasMes), lucro: parseNum(cfg.lucro), taxa: parseNum(cfg.taxa),
+      fixos: cfg.fixos.filter((f) => f.nome || parseNum(f.valor)).map((f) => ({ nome: f.nome || "Conta", valor: parseNum(f.valor) })),
+      atualizadoEm: new Date().toISOString(),
+    };
+    if (!dados.horasMes) { toast("Coloque quantas horas você costura no mês."); $("cHoras").focus(); return; }
+    const btn = $("saveCfg"); btn.disabled = true;
+    try {
+      await store.salvarCfg(dados);
+      cfg = { ...dados }; cfgSujo = false;
+      preencherCfg(); toast("Custos salvos");
+    } catch { toast("Não deu para salvar agora. Tente de novo em instantes."); }
+    finally { btn.disabled = false; }
+  });
+
+  /* ---------- histórico ---------- */
+  let abertoId = null, apagandoId = null;
+  $("histBusca").addEventListener("input", renderHistorico);
+  function renderHistorico() {
+    $("histCount").textContent = historico.length ? `(${historico.length})` : "";
+    const busca = $("histBusca").value.trim().toLowerCase();
+    const itens = historico.filter((h) => !busca || (h.nome || "").toLowerCase().includes(busca) || (h.notas || "").toLowerCase().includes(busca));
+    const list = $("histList"); list.innerHTML = "";
+
+    const tiles = $("histTiles");
+    if (historico.length) {
+      const media = historico.reduce((s, h) => s + (h.venda || 0), 0) / historico.length;
+      const horas = historico.reduce((s, h) => s + (h.horas || 0) + (h.min || 0) / 60, 0);
+      tiles.innerHTML = `
+        <div class="tile"><b>${historico.length}</b><span>bolsas calculadas</span></div>
+        <div class="tile"><b>${fmt(media)}</b><span>preço médio de venda</span></div>
+        <div class="tile"><b>${fmtNum(horas, 1)} h</b><span>de trabalho somadas</span></div>`;
+      tiles.hidden = false;
+    } else tiles.hidden = true;
+
+    $("histInfo").textContent = busca ? `${itens.length} de ${historico.length}` : "";
+    if (!historico.length) {
+      list.innerHTML = `<div class="empty"><h3>Nenhuma bolsa salva ainda</h3>
+        <p class="muted">Calcule uma bolsa em <b>Nova bolsa</b> e toque em <b>Salvar no histórico</b>. Ela aparece aqui com a data, os materiais e o preço.</p>
+        <button class="btn" type="button" id="emptyGo">Calcular uma bolsa</button></div>`;
+      $("emptyGo").addEventListener("click", () => abrirAba("tab-nova"));
+      return;
+    }
+    if (!itens.length) { list.innerHTML = `<div class="empty"><p class="muted">Nenhuma bolsa com esse nome.</p></div>`; return; }
+
+    itens.forEach((h) => {
+      const card = document.createElement("article");
+      card.className = "hist-item";
+      const quando = new Date(h.criadoEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+      const tempo = `${fmtNum(h.horas || 0, 0)} h${h.min ? " " + fmtNum(h.min, 0) + " min" : ""}`;
+      card.innerHTML = `
+        <button class="summary" type="button" aria-expanded="${abertoId === h.id}">
+          <span class="name"></span><span class="price">${fmt(h.venda)}</span>
+          <span class="when">${quando} · ${tempo} · custo ${fmt(h.resultado?.custo)}</span>
+        </button>`;
+      card.querySelector(".name").textContent = h.nome;
+      card.querySelector(".summary").addEventListener("click", () => { abertoId = abertoId === h.id ? null : h.id; apagandoId = null; renderHistorico(); });
+      if (abertoId === h.id) card.appendChild(detalhe(h));
+      list.appendChild(card);
+    });
+  }
+  function detalhe(h) {
+    const d = document.createElement("div");
+    d.className = "hist-detail";
+    const r = h.resultado || {}, c = h.custos || {};
+    const linhas = (h.materiais || []).map((m) =>
+      `<tr><td>${esc(m.nome)}</td><td class="r">${fmtNum(m.qtd, 3)}</td><td class="r">${fmt(m.preco)}</td><td class="r">${fmt(m.qtd * m.preco)}</td></tr>`).join("");
+    d.innerHTML = `
+      ${h.notas ? `<p class="notas"></p>` : ""}
+      <div class="table-wrap"><table class="mat-table">
+        <thead><tr><th>Material</th><th class="r">Qtd.</th><th class="r">Unidade</th><th class="r">Total</th></tr></thead>
+        <tbody>${linhas || `<tr><td colspan="4" class="muted">Sem materiais</td></tr>`}</tbody>
+      </table></div>
+      <dl class="break">
+        <dt>Materiais</dt><dd>${fmt(r.materiais)}</dd>
+        <dt>Seu trabalho (${fmt(c.valorHora)} por hora)</dt><dd>${fmt(r.maoObra)}</dd>
+        <dt>Parte dos custos fixos</dt><dd>${fmt(r.fixo)}</dd>
+        <dt class="total">Custo da bolsa</dt><dd>${fmt(r.custo)}</dd>
+        <dt>Lucro planejado (${fmtNum(h.lucroPct)}%)</dt><dd>${fmt(r.lucro)}</dd>
+        <dt>Taxas (${fmtNum(h.taxaPct)}%)</dt><dd>${fmt(r.taxa)}</dd>
+        <dt>Preço sugerido</dt><dd>${fmt(r.precoArredondado)}</dd>
+        <dt class="total">Vendida por</dt><dd>${fmt(h.venda)}</dd>
+      </dl>
+      <p class="profit-line ${h.lucroReal >= 0 ? "good" : "bad"}">${h.lucroReal >= 0 ? "Lucro de " + fmt(h.lucroReal) + " além do seu salário" : "Ficou " + fmt(-h.lucroReal) + " abaixo do custo"}</p>
+      <p class="muted small">Calculada com sua hora a ${fmt(c.valorHora)} e custos fixos de ${fmt(c.totalFixos)} no mês${c.eraExemplo ? " (valores de exemplo)" : ""}.</p>
+      <div class="actions">
+        <button class="btn sm" type="button" data-a="editar">Alterar</button>
+        <button class="btn ghost sm" type="button" data-a="copiar">Fazer outra igual</button>
+        <button class="btn quiet sm" type="button" data-a="apagar">Apagar</button>
+      </div>
+      <div class="confirm" ${apagandoId === h.id ? "" : "hidden"}>
+        <span>Apagar “<b class="cn"></b>” do histórico? Não tem como desfazer.</span>
+        <button class="btn danger sm" type="button" data-a="sim">Sim, apagar</button>
+        <button class="btn quiet sm" type="button" data-a="nao">Cancelar</button>
+      </div>`;
+    if (h.notas) d.querySelector(".notas").textContent = h.notas;
+    d.querySelector(".cn").textContent = h.nome;
+    d.querySelector('[data-a="editar"]').addEventListener("click", () => carregarNoForm(h, true));
+    d.querySelector('[data-a="copiar"]').addEventListener("click", () => carregarNoForm(h, false));
+    d.querySelector('[data-a="apagar"]').addEventListener("click", () => { apagandoId = h.id; renderHistorico(); });
+    d.querySelector('[data-a="nao"]').addEventListener("click", () => { apagandoId = null; renderHistorico(); });
+    d.querySelector('[data-a="sim"]').addEventListener("click", async () => {
+      try {
+        await store.apagarBolsa(h.id);
+        if (editingId === h.id) { editingId = null; lsSet("rascunhoEditId", null); preencherBolsa(); }
+        apagandoId = null; abertoId = null; toast("Bolsa apagada");
+      } catch { toast("Não deu para apagar agora. Tente de novo."); }
+    });
+    return d;
+  }
+  function esc(s) { const t = document.createElement("span"); t.textContent = s == null ? "" : s; return t.innerHTML; }
+  function carregarNoForm(h, editar) {
+    bag = {
+      nome: editar ? h.nome : h.nome + " (nova)", notas: h.notas || "",
+      materiais: (h.materiais || []).map((m) => ({ ...m })),
+      horas: h.horas, min: h.min,
+      lucro: h.lucroPct, taxa: h.taxaPct, venda: editar ? h.venda : "",
+    };
+    editingId = editar ? h.id : null;
+    lsSet("rascunhoBolsa", bag); lsSet("rascunhoEditId", editingId);
+    preencherBolsa(); abrirAba("tab-nova"); window.scrollTo(0, 0);
+    toast(editar ? "Bolsa aberta para alterar" : "Copiada. Ajuste e salve como nova");
+  }
+
+  /* ---------- armazenamento ---------- */
+  function receberHistorico(lista) {
+    historico = lista.sort((a, b) => (b.criadoEm || "").localeCompare(a.criadoEm || ""));
+    renderHistorico();
+  }
+  function receberCfg(dados) {
+    if (dados && !cfgSujo) { cfg = { ...dados, fixos: (dados.fixos || []).map((f) => ({ ...f })) }; preencherCfg(); }
+  }
+
+  function storeLocal() {
+    const ler = () => lsGet("historicoBolsas") || {};
+    return {
+      tipo: "local",
+      iniciar() { receberCfg(lsGet("custosMes")); receberHistorico(Object.entries(ler()).map(([id, v]) => ({ id, ...v }))); },
+      async salvarCfg(d) { lsSet("custosMes", d); },
+      async salvarBolsa(id, r) { const all = ler(); all[id] = r; lsSet("historicoBolsas", all); this.iniciar(); },
+      async apagarBolsa(id) { const all = ler(); delete all[id]; lsSet("historicoBolsas", all); this.iniciar(); },
+    };
+  }
+  function storeNuvem(db) {
+    const cfgRef = db.doc("config/custos");
+    const col = db.collection("bolsas");
+    return {
+      tipo: "nuvem",
+      iniciar() {
+        cfgRef.onSnapshot((s) => receberCfg(s.exists ? s.data() : null), () => {});
+        col.onSnapshot((s) => receberHistorico(s.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {
+          $("storageNote").textContent = "Sem conexão com o histórico agora. Recarregue a página.";
+        });
+      },
+      salvarCfg: (d) => cfgRef.set(d),
+      salvarBolsa: (id, r) => col.doc(id).set(r),
+      apagarBolsa: (id) => col.doc(id).delete(),
+    };
+  }
+
+  /* ---------- início ---------- */
+  const abaSalva = lsGet("aba");
+  preencherCfg();
+  preencherBolsa();
+  renderHistorico();
+  if (abaSalva && $(abaSalva)) abrirAba(abaSalva);
+
+  (async () => {
+    let db = null;
+    try { db = window.claude?.use ? await window.claude.use("db") : null; } catch { db = null; }
+    if (db) {
+      store = storeNuvem(db);
+      $("storageNote").textContent = "Histórico guardado na nuvem ✓";
+    } else {
+      store = storeLocal();
+      $("storageNote").textContent = "Guardando só neste aparelho";
+    }
+    store.iniciar();
+  })();
+  // enquanto a conexão não responde, salva localmente
+  store = storeLocal();
+})();
+</script>
+</body>
+</html>
